@@ -20,6 +20,7 @@ Windows 11 + WSL2 環境における、堅牢なつもりの Immich サーバー
 
 構築は以下の 2 段階で構成されている。HTML ファイルをダウンロードし、ブラウザで開いて実行すること。
 
-[Phase 1: 環境構築編(System Setup)](https://file+.vscode-resource.vscode-cdn.net/c%3A/Users/kouki/Downloads/Immich-on-WSL/index.html "index.html")[Phase 2: 展開・設定編(Deployment)](https://file+.vscode-resource.vscode-cdn.net/c%3A/Users/kouki/Downloads/Immich-on-WSL/deployment.html "deployment.html")
+- [Phase 1: 環境構築編(System Setup)](https://syameimarukoa.github.io/Immich-on-WSL/index.html)
+- [Phase 2: 展開・設定編(Deployment)](https://syameimarukoa.github.io/Immich-on-WSL/deployment.html)
 
 ※ 上記のリンクは、同じフォルダに `index.html` と `deployment.html` が存在する場合に機能する。
