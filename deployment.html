@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Immich Deployment Guide (Phase 2)</title>
+    <style>
+      :root {
+        --bg-color: #1e1e1e;
+        --text-color: #d4d4d4;
+        --accent-color: #4ec9b0;
+        --code-bg: #2d2d2d;
+        --header-bg: #252526;
+        --border-color: #3e3e42;
+        --btn-bg: #3c3c3c;
+        --btn-hover: #505050;
+        --input-bg: #333;
+      }
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        margin: 0;
+        padding: 0;
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 950px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      header {
+        background-color: var(--header-bg);
+        padding: 30px 0;
+        border-bottom: 1px solid var(--border-color);
+        text-align: center;
+        margin-bottom: 40px;
+      }
+      h1 {
+        margin: 0;
+        color: var(--accent-color);
+        font-size: 2em;
+      }
+      .config-panel {
+        background-color: #2d2d30;
+        border: 1px solid var(--accent-color);
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 30px;
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+      .config-item {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        flex: 1;
+        min-width: 200px;
+      }
+      .config-input {
+        background-color: var(--input-bg);
+        border: 1px solid var(--border-color);
+        color: #fff;
+        padding: 10px;
+        border-radius: 4px;
+        font-family: "Consolas", monospace;
+        font-size: 1em;
+      }
+      .var-highlight {
+        color: #ff9e64;
+        font-weight: bold;
+        border-bottom: 1px dashed #555;
+      }
+      .env-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.8em;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      .env-linux {
+        background-color: #e95420;
+        color: white;
+      }
+      .env-windows {
+        background-color: #0078d7;
+        color: white;
+      }
+      pre {
+        background-color: var(--code-bg);
+        padding: 15px;
+        padding-top: 40px;
+        border-radius: 6px;
+        overflow-x: auto;
+        border: 1px solid var(--border-color);
+        font-family: "Consolas", monospace;
+        color: #dcdcaa;
+        position: relative;
+      }
+      .copy-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background-color: var(--btn-bg);
+        color: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 5px 12px;
+        cursor: pointer;
+        opacity: 0.9;
+      }
+      .copy-btn:hover {
+        background-color: var(--btn-hover);
+        opacity: 1;
+      }
+      .copy-btn.copied {
+        background-color: var(--accent-color);
+        color: #1e1e1e;
+        border-color: var(--accent-color);
+      }
+      .nav-link {
+        background-color: var(--accent-color);
+        color: #1e1e1e;
+        padding: 10px 20px;
+        border-radius: 5px;
+        text-decoration: none;
+        font-weight: bold;
+        display: inline-block;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <h1>Immich Deployment Guide</h1>
+        <p>Phase 2: 展開・Tailscale認証</p>
+        <a href="index.html" class="nav-link">&laquo; Phase 1 (Setup)</a>
+      </div>
+    </header>
+
+    <div class="container">
+      <div class="config-panel">
+        <div class="config-item">
+          <label style="color: var(--accent-color); font-weight: bold"
+            >保存先HDDのドライブ文字 (例: D)</label
+          >
+          <input
+            type="text"
+            id="driveLetter"
+            class="config-input"
+            value="D"
+            maxlength="1"
+          />
+        </div>
+        <div class="config-item">
+          <label style="color: var(--accent-color); font-weight: bold"
+            >保存フォルダ名</label
+          >
+          <input
+            type="text"
+            id="folderPath"
+            class="config-input"
+            value="immich_data"
+          />
+        </div>
+      </div>
+
+      <section>
+        <h2>Step 0: Tailscaleの起動と認証</h2>
+        <span class="env-badge env-linux">WSL (immich_user)</span>
+        <pre><code>sudo tailscale up
+tailscale ip -4
+tailscale status
+
+</code></pre>
+      </section>
+
+      <section>
+        <h2>Step 1: フォルダ構成の作成</h2>
+        <span class="env-badge env-linux">WSL (immich_user)</span>
+        <pre><code>mkdir -p ~/immich/postgres && cd ~/immich
+TARGET_DIR="/mnt/<span class="dyn-drive var-highlight">e</span>/<span class="dyn-path var-highlight">immich_data</span>"
+mkdir -p "$TARGET_DIR/library" "$TARGET_DIR/upload" "$TARGET_DIR/profile" "$TARGET_DIR/thumbs" "$TARGET_DIR/encoded-video" "$TARGET_DIR/backup"
+chmod -R 777 "$TARGET_DIR" 2>/dev/null || true
+touch "$TARGET_DIR/write_test" && rm "$TARGET_DIR/write_test" && echo "✅ Write OK" || echo "❌ Error"
+
+</code></pre>
+      </section>
+
+      <section>
+        <h2>Step 2: .env ファイルの作成</h2>
+        <span class="env-badge env-linux">WSL (immich_user)</span>
+        <pre><code>cat &lt;&lt;EOF > .env
+UPLOAD_LOCATION=/mnt/<span class="dyn-drive var-highlight">e</span>/<span class="dyn-path var-highlight">immich_data</span>
+DB_DATA_LOCATION=./postgres
+IMMICH_VERSION=release
+DB_PASSWORD=postgres
+DB_USERNAME=postgres
+DB_DATABASE_NAME=immich
+TZ=Asia/Tokyo
+IMMICH_API_URL_EXTERNAL=http://localhost:2283
+EOF
+
+</code></pre>
+      </section>
+
+      <section>
+        <h2>Step 3: docker-compose.yml の作成</h2>
+        <span class="env-badge env-linux">WSL (immich_user)</span>
+        <pre><code>cat &lt;&lt;EOF > docker-compose.yml
+name: immich
+services:
+  immich-server:
+    container_name: immich_server
+    image: ghcr.io/immich-app/immich-server:\${IMMICH_VERSION:-release}
+    volumes:
+      - \${UPLOAD_LOCATION}:/usr/src/app/upload
+      - /etc/localtime:/etc/localtime:ro
+    env_file: .env
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+    ports: ['2283:2283']
+    depends_on: [redis, database]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu, video, utility]
+    restart: always
+  immich-machine-learning:
+    container_name: immich_machine_learning
+    image: ghcr.io/immich-app/immich-machine-learning:\${IMMICH_VERSION:-release}-cuda
+    volumes: [model-cache:/cache]
+    env_file: .env
+    deploy:
+      resources:
+        reservations:
+          devices: [{driver: nvidia, count: 1, capabilities: [gpu, video, utility]}]
+    restart: always
+  redis:
+    container_name: immich_redis
+    image: docker.io/valkey/valkey:8
+    restart: always
+  database:
+    container_name: immich_postgres
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
+    environment:
+      POSTGRES_PASSWORD: \${DB_PASSWORD}
+      POSTGRES_USER: \${DB_USERNAME}
+      POSTGRES_DB: \${DB_DATABASE_NAME}
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+    volumes:
+      - \${DB_DATA_LOCATION}:/var/lib/postgresql/data
+    restart: always
+  watchtower:
+    container_name: immich_watchtower
+    image: containrrr/watchtower
+    volumes: [/var/run/docker.sock:/var/run/docker.sock]
+    environment:
+      - WATCHTOWER_POLL_INTERVAL=86400
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+    restart: always
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1200
+volumes:
+  model-cache:
+EOF
+
+</code></pre>
+      </section>
+
+      <section>
+        <h2>Step 4: 起動と確認</h2>
+        <span class="env-badge env-linux">WSL (immich_user)</span>
+        <pre><code>docker compose up -d
+docker compose logs -f immich-server
+
+</code></pre>
+      </section>
+
+      <section>
+        <h2>Step 5: Windows側 自動起動設定 (Keep-Alive)</h2>
+        <span class="env-badge env-windows">Windows (Notepad等)</span>
+        <p>
+          <code>Start-Immich.bat</code>
+          という名前で保存しタスクスケジューラに登録<br />
+          <strong>注意:</strong>
+          手動で起動した場合、黒い画面が開いたままになるが正常である
+          (閉じるとサーバーが止まる)。
+        </p>
+        <pre><code>@echo off
+title Immich Server (Do not close)
+echo Starting Immich on WSL...
+echo.
+echo ========================================================
+echo  [NOTE] この画面が開いている間だけサーバーは動く。
+echo  手動で起動した場合は、閉じずに最小化しておくこと。
+echo  (タスクスケジューラ経由なら裏で動き続ける)
+echo ========================================================
+echo.
+
+:: 1. Dockerを確実に起動 (念のため)
+wsl -d Immich-Server -u root service docker start >nul 2>&1
+
+:: 2. 無限待機コマンドを実行 (これがWSLを繋ぎ止めるアンカーになる)
+wsl -d Immich-Server -u immich_user sleep infinity
+
+</code></pre>
+      </section>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const driveInput = document.getElementById("driveLetter");
+        const pathInput = document.getElementById("folderPath");
+        const updateConfig = () => {
+          const drive = (driveInput.value || "e").toLowerCase();
+          const path = pathInput.value || "immich_data";
+          document
+            .querySelectorAll(".dyn-drive")
+            .forEach((el) => (el.textContent = drive));
+          document
+            .querySelectorAll(".dyn-path")
+            .forEach((el) => (el.textContent = path));
+        };
+        driveInput.addEventListener("input", updateConfig);
+        pathInput.addEventListener("input", updateConfig);
+        updateConfig();
+
+        document.querySelectorAll("pre").forEach((pre) => {
+          const btn = document.createElement("button");
+          btn.className = "copy-btn";
+          btn.textContent = "Copy";
+          btn.addEventListener("click", () => {
+            const code = pre.querySelector("code").innerText;
+            navigator.clipboard.writeText(code).then(() => {
+              btn.textContent = "Copied!";
+              btn.classList.add("copied");
+              setTimeout(() => {
+                btn.textContent = "Copy";
+                btn.classList.remove("copied");
+              }, 2000);
+            });
+          });
+          pre.appendChild(btn);
+        });
+      });
+    </script>
+  </body>
+</html>

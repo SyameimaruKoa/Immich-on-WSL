@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Immich Setup Guide (Phase 1)</title>
+    <style>
+      :root {
+        --bg-color: #1e1e1e;
+        --text-color: #d4d4d4;
+        --accent-color: #4ec9b0;
+        --code-bg: #2d2d2d;
+        --header-bg: #252526;
+        --border-color: #3e3e42;
+        --btn-bg: #3c3c3c;
+        --btn-hover: #505050;
+      }
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        margin: 0;
+        padding: 0;
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 950px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      header {
+        background-color: var(--header-bg);
+        padding: 30px 0;
+        border-bottom: 1px solid var(--border-color);
+        text-align: center;
+        margin-bottom: 40px;
+      }
+      h1 {
+        margin: 0;
+        color: var(--accent-color);
+        font-size: 2em;
+      }
+      h2 {
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 10px;
+        margin-top: 50px;
+        color: #ffffff;
+      }
+      .env-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.8em;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      .env-linux {
+        background-color: #e95420;
+        color: white;
+      }
+      .env-windows {
+        background-color: #0078d7;
+        color: white;
+      }
+      pre {
+        background-color: var(--code-bg);
+        padding: 15px;
+        padding-top: 40px;
+        border-radius: 6px;
+        overflow-x: auto;
+        border: 1px solid var(--border-color);
+        font-family: "Consolas", monospace;
+        color: #dcdcaa;
+        position: relative;
+      }
+      .copy-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background-color: var(--btn-bg);
+        color: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 5px 12px;
+        cursor: pointer;
+        opacity: 0.9;
+      }
+      .copy-btn:hover {
+        background-color: var(--btn-hover);
+        opacity: 1;
+      }
+      .copy-btn.copied {
+        background-color: var(--accent-color);
+        color: #1e1e1e;
+        border-color: var(--accent-color);
+      }
+      .nav-link {
+        background-color: var(--accent-color);
+        color: #1e1e1e;
+        padding: 10px 20px;
+        border-radius: 5px;
+        text-decoration: none;
+        font-weight: bold;
+        display: inline-block;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <h1>Immich Setup Guide</h1>
+        <p>Phase 1: 環境構築</p>
+        <a href="deployment.html" class="nav-link"
+          >Next: Phase 2 (Deployment) &raquo;</a
+        >
+      </div>
+    </header>
+
+    <div class="container">
+      <section>
+        <h2>Step 0: WSL2のインストールと有効化</h2>
+        <span class="env-badge env-windows">Windows PowerShell (管理者)</span>
+        <p>
+          まだWSLを入れていない場合はここから実行。再起動が必要になる場合がある。
+        </p>
+        <pre><code>wsl --install --no-distribution
+wsl --update
+
+</code></pre>
+      </section>
+
+      <section>
+        <h2>Step 1: 隔離環境の作成</h2>
+        <span class="env-badge env-windows">Windows PowerShell (管理者)</span>
+        <p>保存場所作成、イメージ取得、インポート、起動。</p>
+        <pre><code>mkdir C:\WSL\Immich-Server
+cd C:\WSL\Immich-Server
+curl.exe -L -o ubuntu-base.tar.gz https://cdimage.ubuntu.com/ubuntu-base/releases/noble/release/ubuntu-base-24.04.3-base-amd64.tar.gz
+wsl --import Immich-Server C:\WSL\Immich-Server .\ubuntu-base.tar.gz --version 2
+wsl -d Immich-Server
+
+</code></pre>
+      </section>
+
+      <section>
+        <h2>Step 2: 必須パッケージの導入 (iptables含む)</h2>
+        <span class="env-badge env-linux">WSL (Ubuntu Root)</span>
+        <p>Baseイメージには何もないため、sudoやiptables等を一括導入。</p>
+        <pre><code>apt update && apt install -y sudo curl gnupg ca-certificates lsb-release nano systemd iptables
+install -m 0755 -d /etc/apt/keyrings
+
+</code></pre>
+      </section>
+
+      <section>
+        <h2>Step 3: Docker Engine のインストール</h2>
+        <span class="env-badge env-linux">WSL (Ubuntu Root)</span>
+        <p>公式リポジトリ追加とインストール。</p>
+        <pre><code>curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+echo "Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc" | tee /etc/apt/sources.list.d/docker.sources > /dev/null
+apt update && apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+</code></pre>
+      </section>
+
+      <section>
+        <h2>Step 4: NVIDIA Toolkit & Tailscale のインストール</h2>
+        <span class="env-badge env-linux">WSL (Ubuntu Root)</span>
+        <p>GPUドライバツールとVPNツールの一括導入。</p>
+        <pre><code>curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sed -i -e '/experimental/ s/^#//g' /etc/apt/sources.list.d/nvidia-container-toolkit.list
+curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg | tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list | tee /etc/apt/sources.list.d/tailscale.list
+apt update
+export NVIDIA_CONTAINER_TOOLKIT_VERSION=1.18.1-1
+apt install -y nvidia-container-toolkit=${NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base=${NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools=${NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container1=${NVIDIA_CONTAINER_TOOLKIT_VERSION} tailscale
+nvidia-ctk runtime configure --runtime=docker
+nvidia-ctk config --set nvidia-container-cli.no-cgroups --in-place
+
+</code></pre>
+      </section>
+
+      <section>
+        <h2>Step 5: ユーザー作成とネットワーク最適化 (MSS Clamping)</h2>
+        <span class="env-badge env-linux">WSL (Ubuntu Root)</span>
+        <p>
+          ユーザー作成に加え、<strong>起動時に自動的にパケットサイズを調整する設定</strong>を仕込む。
+        </p>
+        <pre><code>useradd -m -s /bin/bash immich_user
+passwd immich_user
+usermod -aG sudo immich_user
+usermod -aG docker immich_user
+echo "[boot]
+systemd=true
+command=\"/usr/sbin/iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\"
+[user]
+default=immich_user
+[automount]
+enabled = true
+root = /mnt/
+options = \"metadata,uid=1000,gid=1000,umask=022\"
+mountFsTab = false" > /etc/wsl.conf
+
+</code></pre>
+      </section>
+
+      <section>
+        <h2>Step 6: 再起動 (環境分割)</h2>
+        <p>設定反映のため、一度Linuxから抜け、Windows側でWSLを再起動する。</p>
+
+        <span class="env-badge env-linux">WSL (Ubuntu Root)</span>
+        <pre><code>exit
+        </code></pre>
+
+        <span class="env-badge env-windows">Windows PowerShell</span>
+        <pre><code>wsl --terminate Immich-Server
+wsl -d Immich-Server
+
+</code></pre>
+      </section>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll("pre").forEach((pre) => {
+          const btn = document.createElement("button");
+          btn.className = "copy-btn";
+          btn.textContent = "Copy";
+          btn.addEventListener("click", () => {
+            const code = pre.querySelector("code").innerText;
+            navigator.clipboard.writeText(code).then(() => {
+              btn.textContent = "Copied!";
+              btn.classList.add("copied");
+              setTimeout(() => {
+                btn.textContent = "Copy";
+                btn.classList.remove("copied");
+              }, 2000);
+            });
+          });
+          pre.appendChild(btn);
+        });
+      });
+    </script>
+  </body>
+</html>
